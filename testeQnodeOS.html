@@ -1,0 +1,1252 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QNodeOS — Simulador Interativo de Kernel Quântico</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        quantum: {
+                            950: '#060913',
+                            900: '#0b1120',
+                            850: '#10182c',
+                            800: '#162038',
+                            700: '#1e2c4c',
+                            cyan: '#06b6d4',
+                            purple: '#8b5cf6',
+                            emerald: '#10b981',
+                            amber: '#f59e0b',
+                            rose: '#f43f5e'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #060913;
+            color: #e2e8f0;
+        }
+        /* Barra de rolagem customizada para o terminal */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0b1120;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1e2c4c;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #334155;
+        }
+
+        /* Animações de pacotes ópticos e clássicos */
+        @keyframes pulseGlow {
+            0%, 100% { opacity: 0.4; transform: scale(0.98); }
+            50% { opacity: 1; transform: scale(1.02); }
+        }
+        .animate-pulse-glow {
+            animation: pulseGlow 2s infinite ease-in-out;
+        }
+
+        @keyframes travelRight {
+            0% { left: 4%; opacity: 0; }
+            15% { opacity: 1; }
+            85% { opacity: 1; }
+            100% { left: 92%; opacity: 0; }
+        }
+        @keyframes travelBidirectional {
+            0% { left: 6%; opacity: 0; }
+            10% { opacity: 1; }
+            45% { left: 90%; opacity: 1; }
+            50% { left: 90%; opacity: 0.4; }
+            90% { left: 6%; opacity: 1; }
+            100% { left: 6%; opacity: 0; }
+        }
+        .photon-packet {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            animation: travelBidirectional 1.1s infinite linear;
+        }
+        .tcp-packet {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            animation: travelRight 0.9s infinite linear;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col font-sans antialiased selection:bg-cyan-500/30 selection:text-cyan-200">
+
+    <!-- BARRA SUPERIOR DE STATUS DO SISTEMA -->
+    <header class="bg-quantum-900/95 border-b border-quantum-700/70 sticky top-0 z-30 backdrop-blur-md">
+        <div class="max-w-[1600px] mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500 to-purple-600 flex items-center justify-center shadow-lg shadow-cyan-500/20">
+                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                    </svg>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h1 class="text-lg sm:text-xl font-bold tracking-tight text-white">QNodeOS <span class="text-cyan-400 font-mono text-sm font-normal">v1.0-HAL</span></h1>
+                        <span id="kernel-status-badge" class="px-2 py-0.5 text-[11px] font-mono font-semibold rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
+                            KERNEL ATIVO
+                        </span>
+                    </div>
+                    <p class="text-xs text-slate-400">Simulador em Tempo Real • Arquitetura Delle Donne et al. (Nature, 2025) &amp; Conceitos de Tanenbaum</p>
+                </div>
+            </div>
+
+            <!-- MÉTRICAS RÁPIDAS DO NÓ -->
+            <div class="flex flex-wrap items-center gap-2 sm:gap-4 text-xs font-mono">
+                <div class="bg-quantum-850 border border-quantum-700/60 px-3 py-1.5 rounded-lg">
+                    <span class="text-slate-400">Concluídos:</span>
+                    <span id="stat-completed" class="text-emerald-400 font-bold ml-1">0</span>
+                </div>
+                <div class="bg-quantum-850 border border-quantum-700/60 px-3 py-1.5 rounded-lg">
+                    <span class="text-slate-400">Anti-Deadlock (T<sub>coh</sub>):</span>
+                    <span id="stat-decoherence" class="text-amber-400 font-bold ml-1">0</span>
+                </div>
+                <div class="bg-quantum-850 border border-quantum-700/60 px-3 py-1.5 rounded-lg">
+                    <span class="text-slate-400">Intrusões Bloqueadas:</span>
+                    <span id="stat-intrusions" class="text-rose-400 font-bold ml-1">0</span>
+                </div>
+                <div class="flex items-center gap-1.5">
+                    <button id="btn-toggle-clock" onclick="toggleSimulation()" class="px-3 py-1.5 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 font-semibold transition flex items-center gap-1.5 cursor-pointer">
+                        <span id="clock-icon">⏸</span>
+                        <span id="clock-label">Pausar Clock</span>
+                    </button>
+                    <button onclick="resetNode()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-600/50 transition cursor-pointer" title="Reiniciar estado do nó">
+                        ↺ Resetar Nó
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- BANNER DE ALERTA INTERATIVO (MODAL/NOTIFICAÇÃO PARA TESTES DE CONCEITOS) -->
+    <div id="concept-banner" class="hidden max-w-[1600px] w-full mx-auto px-4 pt-3">
+        <div id="concept-banner-box" class="rounded-xl p-3.5 border flex items-start justify-between gap-4 shadow-lg transition-all">
+            <div class="flex items-start gap-3">
+                <div id="concept-banner-icon" class="text-xl mt-0.5">⚠️</div>
+                <div>
+                    <h3 id="concept-banner-title" class="text-sm font-bold text-white">Título do Evento</h3>
+                    <p id="concept-banner-desc" class="text-xs text-slate-200 mt-0.5 leading-relaxed">Descrição detalhada.</p>
+                </div>
+            </div>
+            <button onclick="closeBanner()" class="text-slate-400 hover:text-white text-sm font-mono px-2 py-1 rounded hover:bg-white/10 cursor-pointer">✕</button>
+        </div>
+    </div>
+
+    <!-- CONTEÚDO PRINCIPAL -->
+    <main class="flex-1 max-w-[1600px] w-full mx-auto p-4 grid grid-cols-1 xl:grid-cols-12 gap-4">
+
+        <!-- COLUNA ESQUERDA: CONTROLES DO KERNEL, SUBMISSÃO E INJEÇÃO DE FALHAS (4 colunas no XL) -->
+        <aside class="xl:col-span-4 flex flex-col gap-4">
+
+            <!-- 1. PAINEL DE CONTROLE DO KERNEL E HARDWARE (QDriver / HAL) -->
+            <section class="bg-quantum-900 border border-quantum-700/70 rounded-2xl p-4 shadow-xl">
+                <div class="flex items-center justify-between mb-3">
+                    <h2 class="text-sm font-bold uppercase tracking-wider text-cyan-400 flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-cyan-400"></span>
+                        1. Hardware &amp; QDriver (HAL)
+                    </h2>
+                    <span class="text-[11px] font-mono text-slate-400 bg-quantum-850 px-2 py-0.5 rounded border border-quantum-700">Virtualização HAL</span>
+                </div>
+
+                <!-- Seletor de QDevice -->
+                <div class="mb-3">
+                    <label class="block text-xs text-slate-400 mb-1 font-medium">Plataforma Física Subjacente (QDevice):</label>
+                    <select id="hardware-select" onchange="changeHardware()" class="w-full bg-quantum-850 border border-quantum-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500 transition cursor-pointer">
+                        <option value="nv">Centros de Vacância em Diamante (NV Centers - QuTech)</option>
+                        <option value="ions">Íons Aprisionados (Trapped Ions - Innsbruck)</option>
+                    </select>
+                </div>
+
+                <!-- Parâmetros Físicos Dinâmicos -->
+                <div id="hardware-specs" class="grid grid-cols-3 gap-2 mb-4 bg-quantum-850/80 border border-quantum-700/50 rounded-xl p-2.5 text-[11px] font-mono">
+                    <div>
+                        <span class="text-slate-500 block">Controle Físico</span>
+                        <span id="spec-control" class="text-purple-300 font-semibold">Laser + Micro-ondas</span>
+                    </div>
+                    <div>
+                        <span class="text-slate-500 block">Granularidade AWG</span>
+                        <span id="spec-awg" class="text-cyan-300 font-semibold">6,66 ns</span>
+                    </div>
+                    <div>
+                        <span class="text-slate-500 block">Escala QNPU</span>
+                        <span id="spec-scale" class="text-emerald-300 font-semibold">µs / ns</span>
+                    </div>
+                </div>
+
+                <!-- Sliders de Coerência e Qubits -->
+                <div class="space-y-3">
+                    <div>
+                        <div class="flex justify-between text-xs mb-1">
+                            <span class="text-slate-300">Tempo de Coerência (T<sub>coh</sub> / T<sub>1</sub>,T<sub>2</sub>):</span>
+                            <span id="tcoh-display" class="font-mono font-bold text-cyan-400">5.0 s</span>
+                        </div>
+                        <input id="tcoh-slider" type="range" min="2.0" max="10.0" step="0.5" value="5.0" oninput="updateTcoh(this.value)" class="w-full accent-cyan-500 cursor-pointer">
+                        <div class="flex justify-between text-[10px] font-mono text-slate-500">
+                            <span>2.0s (Crítico)</span>
+                            <span>6.0s</span>
+                            <span>10.0s (Estável)</span>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between text-xs mb-1">
+                            <span class="text-slate-300">Capacidade Física (Registrador QDevice):</span>
+                            <span id="qubits-display" class="font-mono font-bold text-purple-400">4 Qubits</span>
+                        </div>
+                        <input id="qubits-slider" type="range" min="2" max="6" step="1" value="4" oninput="updatePhysicalQubits(this.value)" class="w-full accent-purple-500 cursor-pointer">
+                    </div>
+                </div>
+            </section>
+
+            <!-- 2. SUBMISSÃO INTERATIVA DE PROCESSOS (CNPU -> QNPU) -->
+            <section class="bg-quantum-900 border border-quantum-700/70 rounded-2xl p-4 shadow-xl">
+                <div class="flex items-center justify-between mb-3">
+                    <h2 class="text-sm font-bold uppercase tracking-wider text-purple-400 flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-purple-400"></span>
+                        2. Submissão de Processos (CNPU)
+                    </h2>
+                    <span class="text-[11px] font-mono text-slate-400">NetQASM</span>
+                </div>
+
+                <p class="text-xs text-slate-400 mb-2.5">Aplicações pré-configuradas (clique para enfileirar no QNPU):</p>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-4">
+                    <button onclick="submitPreset('qkd')" class="text-left p-2.5 rounded-xl bg-quantum-850 hover:bg-quantum-800 border border-quantum-700 hover:border-cyan-500/50 transition cursor-pointer group">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold text-cyan-300 group-hover:text-cyan-200">+ Protocolo QKD (BB84)</span>
+                            <span class="text-[10px] font-mono bg-cyan-500/10 text-cyan-400 px-1.5 py-0.5 rounded">1 Qubit</span>
+                        </div>
+                        <span class="text-[11px] text-slate-400 block mt-0.5">ER Socket • Prio Usuário (1)</span>
+                    </button>
+
+                    <button onclick="submitPreset('bqc')" class="text-left p-2.5 rounded-xl bg-quantum-850 hover:bg-quantum-800 border border-quantum-700 hover:border-purple-500/50 transition cursor-pointer group">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold text-purple-300 group-hover:text-purple-200">+ Computação Cega (BQC)</span>
+                            <span class="text-[10px] font-mono bg-purple-500/10 text-purple-400 px-1.5 py-0.5 rounded">2 Qubits</span>
+                        </div>
+                        <span class="text-[11px] text-slate-400 block mt-0.5">ER Socket • Nuvem Segura</span>
+                    </button>
+
+                    <button onclick="submitPreset('lgt')" class="text-left p-2.5 rounded-xl bg-quantum-850 hover:bg-quantum-800 border border-quantum-700 hover:border-emerald-500/50 transition cursor-pointer group">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold text-emerald-300 group-hover:text-emerald-200">+ Teste Porta Local (LGT)</span>
+                            <span class="text-[10px] font-mono bg-emerald-500/10 text-emerald-400 px-1.5 py-0.5 rounded">2 Qubits</span>
+                        </div>
+                        <span class="text-[11px] text-slate-400 block mt-0.5">Local • Sem Emaranhamento</span>
+                    </button>
+
+                    <button onclick="submitPreset('net')" class="text-left p-2.5 rounded-xl bg-quantum-850 hover:bg-quantum-800 border border-amber-500/30 hover:border-amber-400 transition cursor-pointer group">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold text-amber-300 group-hover:text-amber-200">+ Processo Rede (Kernel)</span>
+                            <span class="text-[10px] font-mono bg-amber-500/15 text-amber-300 px-1.5 py-0.5 rounded">Prio 0</span>
+                        </div>
+                        <span class="text-[11px] text-slate-400 block mt-0.5">1 Qubit • Fura fila FCFS</span>
+                    </button>
+                </div>
+
+                <!-- Formulário Compacto Customizado -->
+                <details class="bg-quantum-850/60 border border-quantum-700/60 rounded-xl p-2.5">
+                    <summary class="text-xs font-semibold text-slate-300 cursor-pointer select-none flex items-center justify-between">
+                        <span>⚙️ Criar Processo Customizado</span>
+                        <span class="text-[10px] font-mono text-cyan-400">[Expandir]</span>
+                    </summary>
+                    <form onsubmit="submitCustomProcess(event)" class="mt-3 space-y-2.5 text-xs">
+                        <div>
+                            <label class="text-slate-400 block mb-0.5">Nome da Aplicação:</label>
+                            <input id="custom-name" type="text" value="Teletransporte Quântico" required class="w-full bg-quantum-900 border border-quantum-700 rounded-lg px-2.5 py-1.5 text-white focus:outline-none focus:border-cyan-500">
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="text-slate-400 block mb-0.5">Qubits Necessários:</label>
+                                <select id="custom-qubits" class="w-full bg-quantum-900 border border-quantum-700 rounded-lg px-2 py-1.5 text-white">
+                                    <option value="1">1 Qubit</option>
+                                    <option value="2" selected>2 Qubits</option>
+                                    <option value="3">3 Qubits</option>
+                                    <option value="4">4 Qubits</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="text-slate-400 block mb-0.5">Prioridade:</label>
+                                <select id="custom-prio" class="w-full bg-quantum-900 border border-quantum-700 rounded-lg px-2 py-1.5 text-white">
+                                    <option value="1" selected>Usuário (Prio 1 - FCFS)</option>
+                                    <option value="0">Kernel Rede (Prio 0)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="text-slate-400 block mb-0.5">Emaranhamento (EPR):</label>
+                                <select id="custom-epr" class="w-full bg-quantum-900 border border-quantum-700 rounded-lg px-2 py-1.5 text-white">
+                                    <option value="true" selected>Sim (ER Socket)</option>
+                                    <option value="false">Não (Operação Local)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="text-slate-400 block mb-0.5">Latência Rede (s):</label>
+                                <input id="custom-latency" type="number" step="0.2" min="0.4" max="12.0" value="1.6" class="w-full bg-quantum-900 border border-quantum-700 rounded-lg px-2 py-1.5 text-white font-mono">
+                            </div>
+                        </div>
+                        <button type="submit" class="w-full py-2 rounded-lg bg-gradient-to-r from-cyan-600 to-purple-600 hover:from-cyan-500 hover:to-purple-500 text-white font-semibold transition cursor-pointer">
+                            Submeter ao Escalonador CNPU
+                        </button>
+                    </form>
+                </details>
+            </section>
+
+            <!-- 3. INJEÇÃO DE FALHAS E TESTES DE CONCEITOS DE SO (TANENBAUM) -->
+            <section class="bg-quantum-900 border border-rose-500/30 rounded-2xl p-4 shadow-xl">
+                <div class="flex items-center justify-between mb-2.5">
+                    <h2 class="text-sm font-bold uppercase tracking-wider text-rose-400 flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-rose-400"></span>
+                        3. Injeção de Falhas &amp; Testes de SO
+                    </h2>
+                    <span class="text-[10px] font-mono text-rose-300 bg-rose-500/10 px-2 py-0.5 rounded border border-rose-500/20">Tanenbaum</span>
+                </div>
+                <p class="text-[11px] text-slate-400 mb-3">Dispare eventos extremos em tempo real para observar as defesas físicas e de kernel do QNodeOS:</p>
+
+                <div class="space-y-2">
+                    <!-- Teste 1: Segurança Física -->
+                    <button id="btn-eve" onclick="triggerEveAttack()" class="w-full text-left p-2.5 rounded-xl bg-rose-950/40 hover:bg-rose-900/50 border border-rose-500/40 transition flex items-center justify-between cursor-pointer">
+                        <div>
+                            <div class="text-xs font-bold text-rose-300 flex items-center gap-1.5">
+                                <span>🕵️ Interceptar Canal Óptico (Espião Eve)</span>
+                                <span id="eve-armed-badge" class="hidden text-[10px] font-mono bg-rose-500 text-white px-1.5 py-0.2 rounded animate-pulse">ARMADO</span>
+                            </div>
+                            <span class="text-[11px] text-slate-400">Provoca colapso da função de onda na E/S quântica</span>
+                        </div>
+                        <span class="text-xs font-mono text-rose-400">Segurança →</span>
+                    </button>
+
+                    <!-- Teste 2: Anti-Deadlock -->
+                    <button onclick="triggerCongestionDeadlock()" class="w-full text-left p-2.5 rounded-xl bg-amber-950/40 hover:bg-amber-900/50 border border-amber-500/40 transition flex items-center justify-between cursor-pointer">
+                        <div>
+                            <div class="text-xs font-bold text-amber-300">⏳ Forçar Congestionamento (Teste Anti-Deadlock)</div>
+                            <span class="text-[11px] text-slate-400">Retém qubits até T<sub>coh</sub> expirar e liberar o hardware</span>
+                        </div>
+                        <span class="text-xs font-mono text-amber-400">Deadlock →</span>
+                    </button>
+
+                    <!-- Teste 3: Teorema da Não-Clonagem -->
+                    <button onclick="triggerSwapTest()" class="w-full text-left p-2.5 rounded-xl bg-indigo-950/40 hover:bg-indigo-900/50 border border-indigo-500/40 transition flex items-center justify-between cursor-pointer">
+                        <div>
+                            <div class="text-xs font-bold text-indigo-300">🚫 Tentar Swap para Disco (Teste Não-Clonagem)</div>
+                            <span class="text-[11px] text-slate-400">Testa paginação/cópia de qubit para memória secundária</span>
+                        </div>
+                        <span class="text-xs font-mono text-indigo-400">Memória →</span>
+                    </button>
+                </div>
+            </section>
+        </aside>
+
+        <!-- COLUNA DIREITA: VISUALIZAÇÃO DOS 4 PAINÉIS DA ARQUITETURA (8 colunas no XL) -->
+        <div class="xl:col-span-8 flex flex-col gap-4">
+
+            <!-- LINHA SUPERIOR: PAINEL A (ESCALONADOR) + PAINEL B (QMMU) -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+
+                <!-- PAINEL A: ESCALONADOR HÍBRIDO (CNPU + QNPU FreeRTOS) -->
+                <section class="lg:col-span-6 bg-quantum-900 border border-quantum-700/70 rounded-2xl p-4 shadow-xl flex flex-col justify-between">
+                    <div>
+                        <div class="flex items-center justify-between mb-3">
+                            <h2 class="text-sm font-bold text-white flex items-center gap-2">
+                                <span class="px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 font-mono text-xs">Painel A</span>
+                                Escalonador Híbrido (CNPU + QNPU)
+                            </h2>
+                            <span class="text-[10px] font-mono bg-amber-500/15 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded">
+                                Não-Preemptivo • Prio + FCFS
+                            </span>
+                        </div>
+
+                        <!-- Comparativo Threads CNPU vs Serialização QNPU -->
+                        <div class="grid grid-cols-2 gap-2 mb-3 text-[11px] font-mono">
+                            <div class="bg-quantum-850 border border-quantum-700/60 rounded-lg p-2">
+                                <span class="text-slate-400 block">CNPU (Clássico - ms)</span>
+                                <span class="text-emerald-400 font-semibold">Multithread Assíncrono</span>
+                            </div>
+                            <div class="bg-quantum-850 border border-quantum-700/60 rounded-lg p-2">
+                                <span class="text-slate-400 block">QNPU (FreeRTOS - µs)</span>
+                                <span class="text-cyan-400 font-semibold">Execução Serializada</span>
+                            </div>
+                        </div>
+
+                        <!-- CPU / QNPU ATIVA -->
+                        <div class="mb-3">
+                            <div class="text-xs font-semibold text-slate-400 mb-1.5 flex justify-between">
+                                <span>Processo Ocupando o QNPU:</span>
+                                <span id="qnpu-lock-indicator" class="font-mono text-[11px] text-slate-500">OCIOSO</span>
+                            </div>
+                            <div id="active-process-card" class="bg-quantum-850/90 border border-dashed border-quantum-700 rounded-xl p-3.5 min-h-[118px] flex flex-col justify-center">
+                                <div class="text-center text-xs text-slate-500 font-mono">
+                                    Nenhum processo em execução no QNPU.<br>Submeta uma aplicação no painel ao lado.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- FILA DE PRONTOS (READY QUEUE) -->
+                    <div>
+                        <div class="flex items-center justify-between text-xs font-semibold text-slate-400 mb-1.5">
+                            <span>Fila de Prontos (Ordenada: Kernel Prio 0 &gt; FCFS):</span>
+                            <span id="queue-count" class="font-mono text-cyan-400">0 na fila</span>
+                        </div>
+                        <div id="ready-queue-list" class="bg-quantum-950/80 border border-quantum-700/60 rounded-xl p-2 min-h-[84px] max-h-[130px] overflow-y-auto space-y-1.5">
+                            <div class="text-center text-[11px] text-slate-600 py-4 font-mono">Fila vazia</div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- PAINEL B: QMMU (QUANTUM MEMORY MANAGEMENT UNIT) -->
+                <section class="lg:col-span-6 bg-quantum-900 border border-quantum-700/70 rounded-2xl p-4 shadow-xl flex flex-col justify-between">
+                    <div>
+                        <div class="flex items-center justify-between mb-3">
+                            <h2 class="text-sm font-bold text-white flex items-center gap-2">
+                                <span class="px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 font-mono text-xs">Painel B</span>
+                                QMMU (Gerência de Qubits)
+                            </h2>
+                            <span class="text-[10px] font-mono bg-purple-500/15 text-purple-300 border border-purple-500/30 px-2 py-0.5 rounded">
+                                Sem Swapping • Watchdog T<sub>coh</sub>
+                            </span>
+                        </div>
+
+                        <p class="text-[11px] text-slate-400 mb-3">
+                            Tradução <span class="font-mono text-purple-300">Virtual (NetQASM) → Físico</span> com decaimento de coerência (<span class="font-mono">T<sub>1</sub>/T<sub>2</sub></span>) em tempo real:
+                        </p>
+
+                        <!-- GRID DE QUBITS FÍSICOS -->
+                        <div id="qmmu-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                            <!-- Preenchido via JS -->
+                        </div>
+                    </div>
+
+                    <!-- RODAPÉ INFORMATIVO DA QMMU -->
+                    <div class="mt-3 pt-2.5 border-t border-quantum-700/50 flex items-center justify-between text-[11px] font-mono text-slate-400">
+                        <span>Política: Alocação Dinâmica Exclusiva</span>
+                        <span id="qmmu-usage" class="text-purple-300 font-semibold">0 / 4 Alocados</span>
+                    </div>
+                </section>
+            </div>
+
+            <!-- PAINEL C: SUBSISTEMAS DE E/S (CLÁSSICA VS QUÂNTICA) E MULTIPROCESSAMENTO DISTRIBUÍDO -->
+            <section class="bg-quantum-900 border border-quantum-700/70 rounded-2xl p-4 shadow-xl">
+                <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+                    <h2 class="text-sm font-bold text-white flex items-center gap-2">
+                        <span class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono text-xs">Painel C</span>
+                        Subsistemas de E/S Paralela &amp; Rede Quântica Distribuída
+                    </h2>
+                    <div class="flex items-center gap-3 text-[11px] font-mono">
+                        <span class="flex items-center gap-1 text-cyan-400"><span class="w-2 h-2 rounded-full bg-cyan-400"></span> E/S Quântica (ER Sockets / Fótons)</span>
+                        <span class="flex items-center gap-1 text-emerald-400"><span class="w-2 h-2 rounded-full bg-emerald-400"></span> E/S Clássica (TCP/IP / Bits)</span>
+                    </div>
+                </div>
+
+                <!-- DIAGRAMA INTERATIVO NÓ LOCAL <-> NÓ REMOTO -->
+                <div class="bg-quantum-950/90 border border-quantum-700/60 rounded-xl p-3.5 grid grid-cols-1 md:grid-cols-12 items-center gap-3">
+                    
+                    <!-- NÓ LOCAL (QNodeOS A) -->
+                    <div class="md:col-span-3 bg-quantum-850 border border-cyan-500/40 rounded-xl p-3 text-center relative">
+                        <div class="text-[10px] font-mono text-cyan-400 uppercase">Nó Local (Alice)</div>
+                        <div class="text-xs font-bold text-white mt-0.5">QNodeOS Primário</div>
+                        <div id="local-node-hw" class="text-[10px] font-mono text-slate-400 mt-1">NV Centers (QuTech)</div>
+                        <div id="local-node-activity" class="mt-2 text-[10px] font-mono py-0.5 px-2 rounded bg-quantum-900 text-slate-400 border border-quantum-700">
+                            Aguardando E/S
+                        </div>
+                    </div>
+
+                    <!-- BARRAMENTOS DE COMUNICAÇÃO (MEIO) -->
+                    <div class="md:col-span-6 flex flex-col gap-3 py-1">
+                        
+                        <!-- Canal 1: Fibra Óptica Quântica (ER Sockets) -->
+                        <div>
+                            <div class="flex justify-between text-[10px] font-mono mb-1">
+                                <span class="text-cyan-300 font-semibold">Canal Quântico: Fibra Óptica (Fótons / ER Sockets)</span>
+                                <span id="quantum-bus-status" class="text-slate-500">Inativo</span>
+                            </div>
+                            <div id="quantum-bus-track" class="h-6 rounded-lg bg-quantum-900 border border-cyan-500/30 relative overflow-hidden flex items-center px-2">
+                                <div class="w-full border-t border-dashed border-cyan-500/30"></div>
+                                <!-- Pacote animado inserido via JS quando ativo -->
+                                <div id="quantum-packet-anim" class="hidden photon-packet flex items-center gap-1 bg-cyan-500/20 border border-cyan-400 text-cyan-200 text-[10px] font-mono px-2 py-0.5 rounded-full shadow-[0_0_12px_rgba(6,182,212,0.8)]">
+                                    <span>⚛️ Par EPR</span>
+                                </div>
+                                <!-- Indicador de Interceptação Eve -->
+                                <div id="eve-intercept-visual" class="hidden absolute inset-0 bg-rose-600/30 border border-rose-500 flex items-center justify-center text-[11px] font-mono font-bold text-rose-200 animate-pulse">
+                                    🚨 INTERCEPTAÇÃO DETECTADA (COLAPSO DE ESTADO)
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Canal 2: Rede Clássica (TCP/IP) -->
+                        <div>
+                            <div class="flex justify-between text-[10px] font-mono mb-1">
+                                <span class="text-emerald-300 font-semibold">Canal Clássico: Rede TCP/IP (Controle &amp; Medições)</span>
+                                <span id="classical-bus-status" class="text-slate-500">Inativo</span>
+                            </div>
+                            <div class="h-6 rounded-lg bg-quantum-900 border border-emerald-500/30 relative overflow-hidden flex items-center px-2">
+                                <div class="w-full border-t border-dotted border-emerald-500/30"></div>
+                                <div id="classical-packet-anim" class="hidden tcp-packet flex items-center gap-1 bg-emerald-500/20 border border-emerald-400 text-emerald-200 text-[10px] font-mono px-2 py-0.5 rounded-full">
+                                    <span>📦 Bits Clássicos</span>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- NÓ REMOTO (QNodeOS B) -->
+                    <div class="md:col-span-3 bg-quantum-850 border border-purple-500/40 rounded-xl p-3 text-center">
+                        <div class="text-[10px] font-mono text-purple-400 uppercase">Nó Remoto (Bob / Nuvem)</div>
+                        <div class="text-xs font-bold text-white mt-0.5">QNodeOS Parceiro</div>
+                        <div class="text-[10px] font-mono text-slate-400 mt-1">Multicomputador Distribuído</div>
+                        <div id="remote-node-activity" class="mt-2 text-[10px] font-mono py-0.5 px-2 rounded bg-quantum-900 text-slate-400 border border-quantum-700">
+                            Escutando ER Socket
+                        </div>
+                    </div>
+
+                </div>
+            </section>
+
+            <!-- PAINEL D: SISTEMA DE ARQUIVOS CLÁSSICO (LOGS PERSISTENTES DE AUDITORIA) -->
+            <section class="bg-quantum-900 border border-quantum-700/70 rounded-2xl p-4 shadow-xl flex-1 flex flex-col">
+                <div class="flex flex-wrap items-center justify-between gap-2 mb-2.5">
+                    <div class="flex items-center gap-2">
+                        <h2 class="text-sm font-bold text-white flex items-center gap-2">
+                            <span class="px-2 py-0.5 rounded bg-slate-700 text-slate-200 font-mono text-xs">Painel D</span>
+                            Sistema de Arquivos Clássico (Logs Persistentes)
+                        </h2>
+                        <span class="text-[10px] font-mono text-slate-400 hidden sm:inline">/var/log/qnodeos/kernel.log</span>
+                    </div>
+
+                    <div class="flex items-center gap-1.5 text-[11px] font-mono">
+                        <button onclick="setLogFilter('ALL')" id="filter-ALL" class="px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 cursor-pointer">Todos</button>
+                        <button onclick="setLogFilter('SCHED')" id="filter-SCHED" class="px-2 py-0.5 rounded bg-quantum-850 text-slate-400 hover:text-white border border-quantum-700 cursor-pointer">Escalonador</button>
+                        <button onclick="setLogFilter('QMMU')" id="filter-QMMU" class="px-2 py-0.5 rounded bg-quantum-850 text-slate-400 hover:text-white border border-quantum-700 cursor-pointer">QMMU</button>
+                        <button onclick="setLogFilter('SEC')" id="filter-SEC" class="px-2 py-0.5 rounded bg-quantum-850 text-slate-400 hover:text-white border border-quantum-700 cursor-pointer">Alertas/SO</button>
+                        <button onclick="clearLogs()" class="ml-1 px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-600/50 cursor-pointer">Limpar</button>
+                    </div>
+                </div>
+
+                <div id="terminal-logs" class="bg-quantum-950 border border-quantum-700/80 rounded-xl p-3 font-mono text-xs h-[230px] overflow-y-auto space-y-1.5 leading-relaxed">
+                    <!-- Logs inseridos dinamicamente -->
+                </div>
+            </section>
+
+        </div>
+    </main>
+
+    <!-- SCRIPT DO KERNEL QNodeOS EM TEMPO REAL -->
+    <script>
+        // =========================================================================
+        // ESTADO GLOBAL DO KERNEL QNodeOS
+        // =========================================================================
+        const state = {
+            running: true,
+            hardware: 'nv', // 'nv' ou 'ions'
+            tCohLimit: 5.0, // segundos
+            physicalQubitCount: 4,
+            pidCounter: 101,
+            qubits: [], // { id, ownerPid, ownerName, virtualId, allocatedAt, remainingCoh }
+            readyQueue: [], // Array de processos prontos
+            activeProcess: null, // Processo ocupando o QNPU (Não-preemptivo)
+            eveArmed: false, // Se verdadeiro, intercepta a próxima/atual comunicação óptica
+            logs: [],
+            logFilter: 'ALL',
+            stats: {
+                completed: 0,
+                decoherence: 0,
+                intrusions: 0
+            }
+        };
+
+        const HARDWARE_PROFILES = {
+            nv: {
+                name: 'Centros de Vacância em Diamante (NV Centers - QuTech)',
+                shortName: 'NV Centers (QuTech)',
+                control: 'Laser + Micro-ondas',
+                awg: '6,66 ns',
+                scale: 'µs / ns'
+            },
+            ions: {
+                name: 'Íons Aprisionados (Trapped Ions - Innsbruck)',
+                shortName: 'Trapped Ions (Innsbruck)',
+                control: 'Feixes Laser Focados',
+                awg: '10,0 ns',
+                scale: 'µs / ns'
+            }
+        };
+
+        // =========================================================================
+        // SISTEMA DE LOGS PERSISTENTES (SISTEMA DE ARQUIVOS CLÁSSICO)
+        // =========================================================================
+        function addLog(subsystem, category, message, colorClass = 'text-slate-300') {
+            const now = new Date();
+            const timestamp = now.toTimeString().split(' ')[0] + '.' + String(now.getMilliseconds()).padStart(3, '0');
+            const entry = { timestamp, subsystem, category, message, colorClass };
+            state.logs.push(entry);
+            if (state.logs.length > 150) state.logs.shift();
+            renderLogs();
+        }
+
+        function renderLogs() {
+            const container = document.getElementById('terminal-logs');
+            const filtered = state.logFilter === 'ALL'
+                ? state.logs
+                : state.logs.filter(l => l.category === state.logFilter);
+
+            container.innerHTML = filtered.map(l => `
+                <div class="flex items-start gap-2 border-b border-white/[0.03] pb-1">
+                    <span class="text-slate-500 shrink-0">[${l.timestamp}]</span>
+                    <span class="font-bold shrink-0 ${getBadgeColor(l.subsystem)}">[${l.subsystem}]</span>
+                    <span class="${l.colorClass}">${l.message}</span>
+                </div>
+            `).join('');
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function getBadgeColor(sub) {
+            switch (sub) {
+                case 'CNPU': return 'text-blue-400';
+                case 'QNPU': return 'text-cyan-400';
+                case 'QMMU': return 'text-purple-400';
+                case 'QDriver': return 'text-indigo-400';
+                case 'E/S-QUÂNTICA': return 'text-teal-300';
+                case 'E/S-CLÁSSICA': return 'text-emerald-400';
+                case 'ANTI-DEADLOCK': return 'text-amber-400';
+                case 'SEGURANÇA': return 'text-rose-400';
+                case 'FS-DISCO': return 'text-rose-300';
+                default: return 'text-slate-400';
+            }
+        }
+
+        function setLogFilter(filter) {
+            state.logFilter = filter;
+            ['ALL', 'SCHED', 'QMMU', 'SEC'].forEach(f => {
+                const btn = document.getElementById(`filter-${f}`);
+                if (f === filter) {
+                    btn.className = 'px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 cursor-pointer';
+                } else {
+                    btn.className = 'px-2 py-0.5 rounded bg-quantum-850 text-slate-400 hover:text-white border border-quantum-700 cursor-pointer';
+                }
+            });
+            renderLogs();
+        }
+
+        function clearLogs() {
+            state.logs = [];
+            addLog('FS-DISCO', 'ALL', 'Buffer de auditoria limpo pelo operador.', 'text-slate-400');
+        }
+
+        // =========================================================================
+        // BANNER DE EXPLICAÇÃO DIDÁTICA (SEM USAR ALERT())
+        // =========================================================================
+        function showBanner(type, title, desc) {
+            const banner = document.getElementById('concept-banner');
+            const box = document.getElementById('concept-banner-box');
+            const iconEl = document.getElementById('concept-banner-icon');
+            const titleEl = document.getElementById('concept-banner-title');
+            const descEl = document.getElementById('concept-banner-desc');
+
+            banner.classList.remove('hidden');
+            titleEl.textContent = title;
+            descEl.innerHTML = desc;
+
+            if (type === 'danger') {
+                box.className = 'rounded-xl p-3.5 border border-rose-500/50 bg-rose-950/80 flex items-start justify-between gap-4 shadow-lg';
+                iconEl.textContent = '🚨';
+            } else if (type === 'warning') {
+                box.className = 'rounded-xl p-3.5 border border-amber-500/50 bg-amber-950/80 flex items-start justify-between gap-4 shadow-lg';
+                iconEl.textContent = '⚠️';
+            } else {
+                box.className = 'rounded-xl p-3.5 border border-indigo-500/50 bg-indigo-950/80 flex items-start justify-between gap-4 shadow-lg';
+                iconEl.textContent = '🚫';
+            }
+        }
+
+        function closeBanner() {
+            document.getElementById('concept-banner').classList.add('hidden');
+        }
+
+        // =========================================================================
+        // INICIALIZAÇÃO E CONTROLES DE HARDWARE (QDriver / QMMU)
+        // =========================================================================
+        function initQubits() {
+            state.qubits = [];
+            for (let i = 0; i < state.physicalQubitCount; i++) {
+                state.qubits.push({
+                    id: i,
+                    ownerPid: null,
+                    ownerName: null,
+                    virtualId: null,
+                    remainingCoh: state.tCohLimit
+                });
+            }
+            renderQMMU();
+        }
+
+        function changeHardware() {
+            const val = document.getElementById('hardware-select').value;
+            state.hardware = val;
+            const prof = HARDWARE_PROFILES[val];
+            document.getElementById('spec-control').textContent = prof.control;
+            document.getElementById('spec-awg').textContent = prof.awg;
+            document.getElementById('spec-scale').textContent = prof.scale;
+            document.getElementById('local-node-hw').textContent = prof.shortName;
+
+            addLog('QDriver', 'SCHED', `Abstração HAL reconfigurada para ${prof.name}. Código NetQASM permanece inalterado (Agnosticismo de Hardware).`, 'text-indigo-300');
+        }
+
+        function updateTcoh(val) {
+            state.tCohLimit = parseFloat(val);
+            document.getElementById('tcoh-display').textContent = `${state.tCohLimit.toFixed(1)} s`;
+            addLog('QMMU', 'QMMU', `Janela de coerência física (T_coh) ajustada para ${state.tCohLimit.toFixed(1)}s.`, 'text-purple-300');
+        }
+
+        function updatePhysicalQubits(val) {
+            const newCount = parseInt(val, 10);
+            document.getElementById('qubits-display').textContent = `${newCount} Qubits`;
+            if (state.activeProcess || state.readyQueue.length > 0) {
+                resetNode(false);
+            }
+            state.physicalQubitCount = newCount;
+            initQubits();
+            addLog('QDriver', 'QMMU', `Registrador físico do QDevice redimensionado para ${newCount} qubits.`, 'text-cyan-300');
+        }
+
+        function toggleSimulation() {
+            state.running = !state.running;
+            const badge = document.getElementById('kernel-status-badge');
+            const icon = document.getElementById('clock-icon');
+            const label = document.getElementById('clock-label');
+
+            if (state.running) {
+                badge.className = 'px-2 py-0.5 text-[11px] font-mono font-semibold rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5';
+                badge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span> KERNEL ATIVO';
+                icon.textContent = '⏸';
+                label.textContent = 'Pausar Clock';
+                addLog('QNPU', 'SCHED', 'Clock de tempo real do QNPU retomado.', 'text-emerald-300');
+            } else {
+                badge.className = 'px-2 py-0.5 text-[11px] font-mono font-semibold rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30 flex items-center gap-1.5';
+                badge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span> CLOCK PAUSADO';
+                icon.textContent = '▶';
+                label.textContent = 'Retomar Clock';
+                addLog('QNPU', 'SCHED', 'Clock do QNPU pausado para inspeção de estado.', 'text-amber-300');
+            }
+        }
+
+        function resetNode(logReset = true) {
+            state.activeProcess = null;
+            state.readyQueue = [];
+            state.eveArmed = false;
+            document.getElementById('eve-armed-badge').classList.add('hidden');
+            document.getElementById('eve-intercept-visual').classList.add('hidden');
+            initQubits();
+            updateBusVisuals(false, false);
+            renderScheduler();
+            if (logReset) {
+                addLog('CNPU', 'SCHED', 'Nó QNodeOS reiniciado. Registradores quânticos zerados e filas limpas.', 'text-slate-300');
+            }
+        }
+
+        // =========================================================================
+        // SUBMISSÃO DE PROCESSOS (CNPU -> FILA QNPU)
+        // =========================================================================
+        function enqueueProcess(name, qubitsNeeded, needsEntanglement, networkLatency, priority) {
+            if (qubitsNeeded > state.physicalQubitCount) {
+                showBanner('warning', 'Capacidade Física Excedida', `O processo <b>${name}</b> exige ${qubitsNeeded} qubits, mas o QDevice atual possui apenas ${state.physicalQubitCount} qubits físicos. Aumente os qubits no Painel 1.`);
+                addLog('QMMU', 'QMMU', `Rejeitado ${name}: exige ${qubitsNeeded} qubits (máximo físico: ${state.physicalQubitCount}).`, 'text-rose-400');
+                return;
+            }
+
+            const pid = `PID-${state.pidCounter++}`;
+            const proc = {
+                pid,
+                name,
+                qubitsNeeded,
+                needsEntanglement,
+                networkLatency, // segundos esperando E/S quântica
+                priority, // 0 = Kernel Rede, 1 = Usuário FCFS
+                state: 'PRONTO',
+                phase: 'INIT', // 'LOCAL_GATES' -> 'WAITING_EPR' -> 'CLASSICAL_IO' -> 'DONE'
+                phaseElapsed: 0,
+                localGateDuration: 0.9,
+                classicalIoDuration: 0.7,
+                allocatedQubits: [] // [{ virtualId, physicalId }]
+            };
+
+            state.readyQueue.push(proc);
+            // Ordena por prioridade (0 = Kernel primeiro), mantendo FCFS para mesma prioridade
+            state.readyQueue.sort((a, b) => a.priority - b.priority);
+
+            const prioLabel = priority === 0 ? 'Kernel Rede (Prio 0)' : 'Usuário (Prio 1 - FCFS)';
+            addLog('CNPU', 'SCHED', `Aplicação '${name}' (${pid}) submetida [${qubitsNeeded} qubit(s) | ${prioLabel}] -> Fila QNPU.`, 'text-blue-300');
+            renderScheduler();
+        }
+
+        function submitPreset(type) {
+            if (type === 'qkd') {
+                enqueueProcess('Protocolo QKD (BB84)', 1, true, 1.4, 1);
+            } else if (type === 'bqc') {
+                enqueueProcess('Computação Cega (BQC)', 2, true, 2.0, 1);
+            } else if (type === 'lgt') {
+                enqueueProcess('Teste de Porta Local (LGT)', 2, false, 0.0, 1);
+            } else if (type === 'net') {
+                enqueueProcess('Gerenciador EPR (Kernel)', 1, true, 1.0, 0);
+            }
+        }
+
+        function submitCustomProcess(e) {
+            e.preventDefault();
+            const name = document.getElementById('custom-name').value.trim() || 'App Quântico';
+            const qubits = parseInt(document.getElementById('custom-qubits').value, 10);
+            const prio = parseInt(document.getElementById('custom-prio').value, 10);
+            const epr = document.getElementById('custom-epr').value === 'true';
+            const lat = parseFloat(document.getElementById('custom-latency').value) || 1.5;
+
+            enqueueProcess(name, qubits, epr, lat, prio);
+        }
+
+        // =========================================================================
+        // ALOCAÇÃO E GERENCIAMENTO DE MEMÓRIA (QMMU)
+        // =========================================================================
+        function allocateQubitsForProcess(proc) {
+            const freeQubits = state.qubits.filter(q => q.ownerPid === null);
+            if (freeQubits.length < proc.qubitsNeeded) return false;
+
+            proc.allocatedQubits = [];
+            for (let v = 0; v < proc.qubitsNeeded; v++) {
+                const pq = freeQubits[v];
+                pq.ownerPid = proc.pid;
+                pq.ownerName = proc.name;
+                pq.virtualId = v;
+                pq.remainingCoh = state.tCohLimit;
+                proc.allocatedQubits.push({ virtualId: v, physicalId: pq.id });
+            }
+
+            const mapStr = proc.allocatedQubits.map(m => `v${m.virtualId}→#${m.physicalId}`).join(', ');
+            addLog('QMMU', 'QMMU', `Mapeamento Virtual→Físico alocado para ${proc.pid}: [${mapStr}] (T_coh = ${state.tCohLimit.toFixed(1)}s).`, 'text-purple-300');
+            return true;
+        }
+
+        function releaseQubits(proc, reason) {
+            if (!proc) return;
+            const freedIds = [];
+            state.qubits.forEach(q => {
+                if (q.ownerPid === proc.pid) {
+                    freedIds.push(`#${q.id}`);
+                    q.ownerPid = null;
+                    q.ownerName = null;
+                    q.virtualId = null;
+                    q.remainingCoh = state.tCohLimit;
+                }
+            });
+            proc.allocatedQubits = [];
+            if (freedIds.length > 0) {
+                addLog('QMMU', 'QMMU', `Qubits físicos [${freedIds.join(', ')}] desalocados e resetados (${reason}).`, 'text-purple-300');
+            }
+            renderQMMU();
+        }
+
+        // =========================================================================
+        // TESTES DE INJEÇÃO DE FALHAS E CONCEITOS DE TANENBAUM
+        // =========================================================================
+        function triggerEveAttack() {
+            const active = state.activeProcess;
+            if (active && active.phase === 'WAITING_EPR') {
+                // Intercepta imediatamente
+                executeEveCollapse(active);
+            } else {
+                // Arma a interceptação para o próximo pulso óptico (ou enfileira um QKD se tudo estiver ocioso)
+                state.eveArmed = true;
+                document.getElementById('eve-armed-badge').classList.remove('hidden');
+                addLog('SEGURANÇA', 'SEC', 'Espião (Eve) posicionado na fibra óptica! Aguardando próximo fóton em trânsito...', 'text-rose-400');
+                if (!active && state.readyQueue.length === 0) {
+                    enqueueProcess('Protocolo QKD (Sob Ataque)', 1, true, 1.8, 1);
+                }
+            }
+        }
+
+        function executeEveCollapse(proc) {
+            state.eveArmed = false;
+            document.getElementById('eve-armed-badge').classList.add('hidden');
+            document.getElementById('eve-intercept-visual').classList.remove('hidden');
+
+            state.stats.intrusions++;
+            document.getElementById('stat-intrusions').textContent = state.stats.intrusions;
+
+            addLog('SEGURANÇA', 'SEC', `🚨 INTRUSÃO DETECTADA NO CANAL ÓPTICO! Perturbação quântica colapsou o par EPR de ${proc.pid} (${proc.name}). Sessão abortada!`, 'text-rose-400 font-semibold');
+
+            showBanner(
+                'danger',
+                'Segurança Física: Espionagem Detectada pelo QDriver!',
+                `Um terceiro (Eve) tentou medir os fótons em trânsito do processo <b>${proc.pid} (${proc.name})</b>. Pelas leis da Mecânica Quântica (Teorema da Não-Clonagem), a medição perturbou o emaranhamento e o <b>QNodeOS abortou a sessão imediatamente</b>.`
+            );
+
+            releaseQubits(proc, 'Sessão abortada por violação de segurança quântica');
+            state.activeProcess = null;
+            updateBusVisuals(false, false);
+
+            setTimeout(() => {
+                document.getElementById('eve-intercept-visual').classList.add('hidden');
+            }, 2200);
+        }
+
+        function triggerCongestionDeadlock() {
+            const slowLatency = parseFloat((state.tCohLimit + 2.5).toFixed(1));
+            const qubitsToHold = Math.min(2, state.physicalQubitCount);
+
+            if (state.activeProcess && state.activeProcess.phase === 'WAITING_EPR') {
+                state.activeProcess.networkLatency = state.activeProcess.phaseElapsed + state.tCohLimit + 2.0;
+                addLog('ANTI-DEADLOCK', 'SEC', `Congestionamento injetado em ${state.activeProcess.pid}! Retendo qubits até T_coh expirar...`, 'text-amber-300');
+            } else {
+                // Submete um processo lento que retém qubits + um processo seguinte na fila para evidenciar a quebra de posse-e-espera
+                enqueueProcess('BQC Congestionado (Posse-Espera)', qubitsToHold, true, slowLatency, 1);
+                enqueueProcess('Aplicação Bloqueada na Fila', 1, false, 0, 1);
+                addLog('ANTI-DEADLOCK', 'SEC', `Teste Anti-Deadlock iniciado: processo reterá ${qubitsToHold} qubit(s) por ${slowLatency}s (> T_coh de ${state.tCohLimit}s).`, 'text-amber-300');
+            }
+        }
+
+        function triggerSwapTest() {
+            const target = state.activeProcess
+                ? `${state.activeProcess.pid} (${state.activeProcess.name})`
+                : 'Registrador Qubit #0';
+
+            addLog('FS-DISCO', 'SEC', `🚫 BLOQUEADO: Tentativa de Swap/Copy-on-Write de ${target} para disco rígido violou o Teorema da Não-Clonagem!`, 'text-rose-400 font-semibold');
+
+            showBanner(
+                'info',
+                'Teorema da Não-Clonagem: Swap para Disco Impossível!',
+                `Em SOs clássicos (Tanenbaum), páginas de RAM são copiadas para o disco via <i>swapping</i> ou <i>Copy-on-Write</i>. No QNodeOS, o <b>Teorema da Não-Clonagem</b> proíbe copiar um estado quântico desconhecido (|ψ⟩ = α|0⟩ + β|1⟩). O sistema de arquivos clássico armazena apenas logs, calibração e código NetQASM.`
+            );
+        }
+
+        // =========================================================================
+        // LOOP PRINCIPAL DO KERNEL EM TEMPO REAL (TICK = 50ms)
+        // =========================================================================
+        const TICK_MS = 50;
+        const DT = TICK_MS / 1000; // 0.05s
+
+        function kernelTick() {
+            if (!state.running) return;
+
+            // 1. WATCHDOG DA QMMU: DECAIMENTO DE COERÊNCIA (T1/T2) E PREVENÇÃO DE DEADLOCK
+            let decoherenceTriggered = false;
+            state.qubits.forEach(q => {
+                if (q.ownerPid !== null) {
+                    q.remainingCoh = Math.max(0, q.remainingCoh - DT);
+                    if (q.remainingCoh <= 0) {
+                        decoherenceTriggered = true;
+                    }
+                }
+            });
+
+            if (decoherenceTriggered && state.activeProcess) {
+                const victim = state.activeProcess;
+                state.stats.decoherence++;
+                document.getElementById('stat-decoherence').textContent = state.stats.decoherence;
+
+                addLog('ANTI-DEADLOCK', 'SEC', `⚠️ WATCHDOG T_coh: Coerência de ${victim.pid} (${victim.name}) expirou! Preempção temporal forçada para evitar Deadlock de Posse e Espera.`, 'text-amber-400 font-semibold');
+
+                showBanner(
+                    'warning',
+                    'Prevenção de Deadlock via Expiração de Coerência (T_coh)',
+                    `O processo <b>${victim.pid} (${victim.name})</b> reteve qubits físicos além da janela de coerência (${state.tCohLimit.toFixed(1)}s) aguardando resposta remota. A QMMU invalidou e liberou o hardware automaticamente, quebrando a condição de <i>posse e espera</i> (Tanenbaum).`
+                );
+
+                releaseQubits(victim, 'Timeout de Coerência T_coh / Prevenção de Deadlock');
+                state.activeProcess = null;
+                updateBusVisuals(false, false);
+            }
+
+            // 2. ESCALONADOR QNPU (NÃO-PREEMPTIVO)
+            if (!state.activeProcess && state.readyQueue.length > 0) {
+                const nextProc = state.readyQueue[0];
+                if (allocateQubitsForProcess(nextProc)) {
+                    state.readyQueue.shift();
+                    state.activeProcess = nextProc;
+                    nextProc.state = 'EXECUTANDO';
+                    nextProc.phase = 'LOCAL_GATES';
+                    nextProc.phaseElapsed = 0;
+
+                    const prof = HARDWARE_PROFILES[state.hardware];
+                    addLog('QNPU', 'SCHED', `Despachando ${nextProc.pid} (${nextProc.name}) [Não-Preemptivo]. QDriver traduzindo NetQASM → ${prof.control}.`, 'text-cyan-300');
+                }
+            }
+
+            // 3. PROGRESSO DO PROCESSO ATIVO NO QNPU
+            const proc = state.activeProcess;
+            if (proc) {
+                proc.phaseElapsed += DT;
+
+                if (proc.phase === 'LOCAL_GATES') {
+                    updateBusVisuals(false, false);
+                    if (proc.phaseElapsed >= proc.localGateDuration) {
+                        proc.phaseElapsed = 0;
+                        if (proc.needsEntanglement) {
+                            proc.phase = 'WAITING_EPR';
+                            proc.state = 'AGUARDANDO EMARANHAMENTO';
+                            addLog('E/S-QUÂNTICA', 'SCHED', `${proc.pid} entrou no estado AGUARDANDO EMARANHAMENTO (ER Socket). Solicitando fótons...`, 'text-teal-300');
+                        } else {
+                            proc.phase = 'CLASSICAL_IO';
+                            proc.state = 'BLOQUEADO (E/S TCP/IP)';
+                            addLog('E/S-CLÁSSICA', 'SCHED', `${proc.pid} enviando resultado de medição local via socket TCP/IP...`, 'text-emerald-300');
+                        }
+                    }
+                } else if (proc.phase === 'WAITING_EPR') {
+                    updateBusVisuals(true, false);
+
+                    // Verifica se o espião Eve foi armado
+                    if (state.eveArmed && proc.phaseElapsed >= 0.45) {
+                        executeEveCollapse(proc);
+                        renderScheduler();
+                        renderQMMU();
+                        return;
+                    }
+
+                    if (proc.phaseElapsed >= proc.networkLatency) {
+                        proc.phaseElapsed = 0;
+                        proc.phase = 'CLASSICAL_IO';
+                        proc.state = 'BLOQUEADO (E/S TCP/IP)';
+                        addLog('E/S-QUÂNTICA', 'SCHED', `Par EPR estabelecido com sucesso para ${proc.pid}! Iniciando sincronização clássica TCP/IP.`, 'text-teal-300');
+                    }
+                } else if (proc.phase === 'CLASSICAL_IO') {
+                    updateBusVisuals(false, true);
+                    if (proc.phaseElapsed >= proc.classicalIoDuration) {
+                        // Concluído com sucesso!
+                        state.stats.completed++;
+                        document.getElementById('stat-completed').textContent = state.stats.completed;
+
+                        addLog('CNPU', 'SCHED', `✅ Processo ${proc.pid} (${proc.name}) CONCLUÍDO com sucesso!`, 'text-emerald-400 font-semibold');
+                        releaseQubits(proc, 'Execução concluída');
+                        state.activeProcess = null;
+                        updateBusVisuals(false, false);
+                    }
+                }
+            }
+
+            renderScheduler();
+            renderQMMU();
+        }
+
+        // =========================================================================
+        // RENDERIZAÇÃO DOS PAINÉIS VISUAIS (A, B, C)
+        // =========================================================================
+        function updateBusVisuals(quantumActive, classicalActive) {
+            const qAnim = document.getElementById('quantum-packet-anim');
+            const qStatus = document.getElementById('quantum-bus-status');
+            const cAnim = document.getElementById('classical-packet-anim');
+            const cStatus = document.getElementById('classical-bus-status');
+            const localAct = document.getElementById('local-node-activity');
+            const remoteAct = document.getElementById('remote-node-activity');
+
+            if (quantumActive) {
+                qAnim.classList.remove('hidden');
+                qStatus.textContent = 'Transmitindo Fótons (ER Socket)...';
+                qStatus.className = 'text-cyan-400 font-semibold';
+                localAct.textContent = 'Emitindo Fóton EPR';
+                localAct.className = 'mt-2 text-[10px] font-mono py-0.5 px-2 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/40';
+                remoteAct.textContent = 'Sincronizando Bell State';
+                remoteAct.className = 'mt-2 text-[10px] font-mono py-0.5 px-2 rounded bg-purple-500/20 text-purple-300 border border-purple-500/40';
+            } else {
+                qAnim.classList.add('hidden');
+                qStatus.textContent = 'Inativo';
+                qStatus.className = 'text-slate-500';
+            }
+
+            if (classicalActive) {
+                cAnim.classList.remove('hidden');
+                cStatus.textContent = 'Trafegando Bits (TCP/IP)...';
+                cStatus.className = 'text-emerald-400 font-semibold';
+                localAct.textContent = 'Enviando Bits Clássicos';
+                localAct.className = 'mt-2 text-[10px] font-mono py-0.5 px-2 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40';
+                remoteAct.textContent = 'ACK TCP/IP Recebido';
+                remoteAct.className = 'mt-2 text-[10px] font-mono py-0.5 px-2 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40';
+            } else {
+                cAnim.classList.add('hidden');
+                cStatus.textContent = 'Inativo';
+                cStatus.className = 'text-slate-500';
+            }
+
+            if (!quantumActive && !classicalActive) {
+                localAct.textContent = state.activeProcess ? 'Executando Portas Locais' : 'Aguardando E/S';
+                localAct.className = 'mt-2 text-[10px] font-mono py-0.5 px-2 rounded bg-quantum-900 text-slate-400 border border-quantum-700';
+                remoteAct.textContent = 'Escutando ER Socket';
+                remoteAct.className = 'mt-2 text-[10px] font-mono py-0.5 px-2 rounded bg-quantum-900 text-slate-400 border border-quantum-700';
+            }
+        }
+
+        function renderScheduler() {
+            const activeCard = document.getElementById('active-process-card');
+            const lockInd = document.getElementById('qnpu-lock-indicator');
+            const queueList = document.getElementById('ready-queue-list');
+            const queueCount = document.getElementById('queue-count');
+
+            if (state.activeProcess) {
+                const p = state.activeProcess;
+                lockInd.textContent = '🔒 LOCK NÃO-PREEMPTIVO';
+                lockInd.className = 'font-mono text-[11px] text-amber-400 font-semibold';
+
+                let phaseTotal = p.localGateDuration;
+                let phaseLabel = '1/3 Portas Quânticas Locais (NetQASM)';
+                let badgeStyle = 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40';
+
+                if (p.phase === 'WAITING_EPR') {
+                    phaseTotal = p.networkLatency;
+                    phaseLabel = '2/3 Aguardando Emaranhamento (ER Socket)';
+                    badgeStyle = 'bg-teal-500/20 text-teal-300 border-teal-500/40 animate-pulse';
+                } else if (p.phase === 'CLASSICAL_IO') {
+                    phaseTotal = p.classicalIoDuration;
+                    phaseLabel = p.needsEntanglement ? '3/3 E/S Clássica (TCP/IP)' : '2/2 E/S Clássica (TCP/IP)';
+                    badgeStyle = 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40';
+                }
+
+                const pct = Math.min(100, Math.round((p.phaseElapsed / phaseTotal) * 100));
+                const mapBadges = p.allocatedQubits.map(m => `v${m.virtualId}→#${m.physicalId}`).join(' ');
+
+                activeCard.className = 'bg-quantum-850 border border-cyan-500/50 rounded-xl p-3.5 min-h-[118px] flex flex-col justify-between shadow-inner';
+                activeCard.innerHTML = `
+                    <div class="flex items-start justify-between gap-2">
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <span class="font-mono text-xs font-bold text-cyan-400">${p.pid}</span>
+                                <span class="text-xs font-bold text-white">${p.name}</span>
+                            </div>
+                            <div class="text-[11px] font-mono text-purple-300 mt-0.5">Qubits: [${mapBadges}]</div>
+                        </div>
+                        <span class="text-[10px] font-mono px-2 py-0.5 rounded border ${badgeStyle}">${p.state}</span>
+                    </div>
+                    <div class="mt-3">
+                        <div class="flex justify-between text-[10px] font-mono text-slate-400 mb-1">
+                            <span>${phaseLabel}</span>
+                            <span>${pct}%</span>
+                        </div>
+                        <div class="w-full h-2 bg-quantum-950 rounded-full overflow-hidden border border-quantum-700">
+                            <div class="h-full bg-gradient-to-r from-cyan-500 to-purple-500 transition-all duration-75" style="width: ${pct}%"></div>
+                        </div>
+                    </div>
+                `;
+            } else {
+                lockInd.textContent = 'OCIOSO';
+                lockInd.className = 'font-mono text-[11px] text-slate-500';
+                activeCard.className = 'bg-quantum-850/90 border border-dashed border-quantum-700 rounded-xl p-3.5 min-h-[118px] flex flex-col justify-center';
+                activeCard.innerHTML = `
+                    <div class="text-center text-xs text-slate-500 font-mono">
+                        Nenhum processo em execução no QNPU.<br>Submeta uma aplicação no painel ao lado.
+                    </div>
+                `;
+            }
+
+            // Renderiza Fila de Prontos
+            queueCount.textContent = `${state.readyQueue.length} na fila`;
+            if (state.readyQueue.length === 0) {
+                queueList.innerHTML = `<div class="text-center text-[11px] text-slate-600 py-4 font-mono">Fila vazia</div>`;
+            } else {
+                queueList.innerHTML = state.readyQueue.map((item, idx) => {
+                    const isKernel = item.priority === 0;
+                    return `
+                        <div class="flex items-center justify-between bg-quantum-900 border ${isKernel ? 'border-amber-500/40' : 'border-quantum-700/70'} rounded-lg px-2.5 py-1.5 text-xs">
+                            <div class="flex items-center gap-2">
+                                <span class="font-mono text-[10px] text-slate-500">#${idx + 1}</span>
+                                <span class="font-mono font-bold ${isKernel ? 'text-amber-300' : 'text-cyan-300'}">${item.pid}</span>
+                                <span class="text-slate-200 truncate max-w-[140px] sm:max-w-[180px]">${item.name}</span>
+                            </div>
+                            <div class="flex items-center gap-1.5 font-mono text-[10px]">
+                                <span class="px-1.5 py-0.5 rounded bg-purple-500/15 text-purple-300">${item.qubitsNeeded}q</span>
+                                <span class="px-1.5 py-0.5 rounded ${isKernel ? 'bg-amber-500/20 text-amber-300' : 'bg-slate-800 text-slate-400'}">
+                                    ${isKernel ? 'Prio 0' : 'FCFS'}
+                                </span>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+        }
+
+        function renderQMMU() {
+            const grid = document.getElementById('qmmu-grid');
+            const usage = document.getElementById('qmmu-usage');
+            const allocatedCount = state.qubits.filter(q => q.ownerPid !== null).length;
+            usage.textContent = `${allocatedCount} / ${state.physicalQubitCount} Alocados`;
+
+            grid.innerHTML = state.qubits.map(q => {
+                if (q.ownerPid === null) {
+                    return `
+                        <div class="bg-quantum-850/50 border border-quantum-700/60 rounded-xl p-2.5 flex flex-col justify-between">
+                            <div class="flex items-center justify-between">
+                                <span class="font-mono text-xs font-bold text-slate-400">Qubit Físico #${q.id}</span>
+                                <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700">LIVRE</span>
+                            </div>
+                            <div class="my-2 text-[11px] font-mono text-slate-600">Estado fundamental |0⟩ pronto</div>
+                            <div class="w-full h-1.5 bg-quantum-950 rounded-full overflow-hidden">
+                                <div class="h-full bg-slate-700 w-0"></div>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    const pct = Math.max(0, Math.min(100, (q.remainingCoh / state.tCohLimit) * 100));
+                    let barColor = 'bg-emerald-400';
+                    let borderColor = 'border-purple-500/50';
+                    let textCohColor = 'text-emerald-300';
+
+                    if (pct < 25) {
+                        barColor = 'bg-rose-500 animate-pulse';
+                        borderColor = 'border-rose-500/70';
+                        textCohColor = 'text-rose-400 font-bold';
+                    } else if (pct < 55) {
+                        barColor = 'bg-amber-400';
+                        borderColor = 'border-amber-500/60';
+                        textCohColor = 'text-amber-300';
+                    }
+
+                    return `
+                        <div class="bg-quantum-850 border ${borderColor} rounded-xl p-2.5 flex flex-col justify-between shadow-md">
+                            <div class="flex items-center justify-between">
+                                <span class="font-mono text-xs font-bold text-white">Físico #${q.id} <span class="text-purple-300 font-normal">(v${q.virtualId})</span></span>
+                                <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/40">${q.ownerPid}</span>
+                            </div>
+                            <div class="my-1.5 flex items-center justify-between text-[10px] font-mono">
+                                <span class="text-slate-400 truncate max-w-[120px]">${q.ownerName}</span>
+                                <span class="${textCohColor}">T_coh: ${q.remainingCoh.toFixed(1)}s</span>
+                            </div>
+                            <div class="w-full h-2 bg-quantum-950 rounded-full overflow-hidden border border-quantum-700">
+                                <div class="h-full ${barColor} transition-all duration-75" style="width: ${pct}%"></div>
+                            </div>
+                        </div>
+                    `;
+                }
+            }).join('');
+        }
+
+        // =========================================================================
+        // INICIALIZAÇÃO NO CARREGAMENTO DA PÁGINA
+        // =========================================================================
+        window.onload = function () {
+            initQubits();
+            renderScheduler();
+            addLog('CNPU', 'SCHED', 'Kernel QNodeOS inicializado com sucesso. Camada HAL pronta.', 'text-emerald-400');
+            addLog('QDriver', 'QMMU', 'Driver carregado para Centros de Vacância em Diamante (NV Centers - QuTech).', 'text-indigo-300');
+            setInterval(kernelTick, TICK_MS);
+        };
+    </script>
+</body>
+</html>
